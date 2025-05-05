@@ -1,0 +1,79 @@
+name: study_nest
+description: A new Flutter project.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  http: ^1.2.2
+  file_picker: ^8.1.2
+  localstorage: ^5.0.0
+  html: ^0.15.4
+  url_launcher: ^6.3.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/studynestlogo.webp
+    - assets/logo-on-dark.png
+    - assets/pic01.webp
+    - assets/year1.png
+    - assets/year2.png
+    - assets/year3.png
+    - assets/year4.png
+    - assets/first_year.png
+    - assets/second_year.png
+    - assets/third_year.png
+    - assets/fourth_year.png
+    - assets/google-brands-solid.png
+    - assets/facebook-brands-solid.png
+    - assets/instagram-brands-solid.png
+    - assets/linkedin-brands-solid.png
+
+# name: study_nest
+# description: A Flutter app for Study Nest, integrated with Node.js backend.
+# publish_to: 'none'
+# version: 1.0.0+1
+
+# environment:
+#   sdk: '>=3.0.0 <4.0.0'
+
+# dependencies:
+#   flutter:
+#     sdk: flutter
+#   cupertino_icons: ^1.0.8
+#   http: ^1.2.2
+#   file_picker: ^8.1.2
+#   localstorage: ^4.0.1+4
+#   url_launcher: ^6.3.0
+#   flutter_gradient: ^0.0.4
+
+# dev_dependencies:
+#   flutter_test:
+#     sdk: flutter
+#   flutter_lints: ^4.0.0
+
+# flutter:
+#   uses-material-design: true
+#   assets:
+#     - assets/studynestlogo.webp
+#     - assets/pic01.webp
+#     - assets/year1.png
+#     - assets/year2.png
+#     - assets/year3.png
+#     - assets/year4.png
+#     - assets/google-brands-solid.svg
+#     - assets/facebook-brands-solid.svg
+#     - assets/instagram-brands-solid.svg
+#     - assets/linkedin-brands-solid.svg
