@@ -1,26 +1,23 @@
 const express = require('express');
-const multer = require('multer');
 const cors = require('cors');
 const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
-const path = require('path');
-const fs = require('fs');
 
 const app = express();
 const port = 3000;
 
 // Middleware
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' })); // Increase payload limit to 10MB
 
 // Ensure all errors return JSON, not HTML
 app.use((err, req, res, next) => {
-  console.error('Server error:', err);
-  res.status(500).json({ error: 'Internal server error' });
+  console.error('Server error:', err.message, err.stack);
+  res.status(500).json({ error: 'Internal server error', details: err.message });
 });
 
 // Connect to MongoDB
-mongoose.connect('mongodb://localhost/studynest').then(() => {
+mongoose.connect('mongodb://localhost:27017/studynest').then(() => {
   console.log('Connected to MongoDB');
 }).catch(err => {
   console.error('Failed to connect to MongoDB:', err);
@@ -31,7 +28,7 @@ mongoose.connect('mongodb://localhost/studynest').then(() => {
 const userSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true },
   password: { type: String, required: true },
-  role: { type: String, required: true, enum: ['student', 'teacher'] },
+  role: { type: String, required: true, enum: ['student', 'teacher', 'admin'] },
   rollno: { type: String, required: true },
 });
 
@@ -43,7 +40,8 @@ const pageSchema = new mongoose.Schema({
 const fileSchema = new mongoose.Schema({
   pageName: { type: String, required: true },
   name: { type: String, required: true },
-  path: { type: String, required: true }, // Store the full file path
+  fileData: { type: String, required: true }, // Store base64-encoded file
+  contentType: { type: String, required: true }, // e.g., 'application/pdf'
   uploadedAt: { type: Date, default: Date.now },
 });
 
@@ -51,25 +49,6 @@ const fileSchema = new mongoose.Schema({
 const User = mongoose.model('User', userSchema, 'users');
 const Page = mongoose.model('Page', pageSchema);
 const File = mongoose.model('File', fileSchema);
-
-// Set up multer for file uploads
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const pageName = req.params.pageName;
-    if (!pageName || pageName.trim() === '') {
-      return cb(new Error('Page name is required'), null);
-    }
-    const uploadPath = path.join(__dirname, 'Uploads', pageName);
-    if (!fs.existsSync(uploadPath)) {
-      fs.mkdirSync(uploadPath, { recursive: true });
-    }
-    cb(null, uploadPath);
-  },
-  filename: (req, file, cb) => {
-    cb(null, file.originalname);
-  },
-});
-const upload = multer({ storage });
 
 // Routes for pages
 app.get('/pages', async (req, res) => {
@@ -79,7 +58,7 @@ app.get('/pages', async (req, res) => {
     res.json(pages);
   } catch (err) {
     console.error('Error fetching pages:', err);
-    res.status(500).json({ error: 'Failed to load subjects' });
+    res.status(500).json({ error: 'Failed to load subjects', details: err.message });
   }
 });
 
@@ -87,135 +66,163 @@ app.post('/pages', async (req, res) => {
   const { name, semester } = req.body;
   const username = req.headers['x-username'];
   if (!username) {
+    console.error('Validation failed: Username required in headers');
     return res.status(401).json({ error: 'Username required in headers' });
   }
   if (!name || !semester) {
+    console.error('Validation failed: Name and semester are required');
     return res.status(400).json({ error: 'Name and semester are required' });
   }
   try {
+    console.log('Fetching user:', username);
     const user = await User.findOne({ username });
     if (!user) {
+      console.error('User not found:', username);
       return res.status(401).json({ error: 'User not found' });
     }
     if (user.role !== 'teacher') {
+      console.error('User not authorized:', username, user.role);
       return res.status(403).json({ error: 'Only teachers can create subjects' });
     }
+    console.log('Creating page:', name, semester);
     const page = new Page({ name, semester });
     await page.save();
     console.log('Page created:', page);
     res.status(201).json({ message: 'Page created' });
   } catch (err) {
     console.error('Error creating page:', err);
-    res.status(500).json({ error: 'Failed to create page' });
+    res.status(500).json({ error: 'Failed to create page', details: err.message });
   }
 });
 
 app.delete('/pages/:pageName', async (req, res) => {
   const pageName = req.params.pageName;
   if (!pageName || pageName.trim() === '') {
+    console.error('Validation failed: Page name is required');
     return res.status(400).json({ error: 'Page name is required' });
   }
   const username = req.headers['x-username'];
   if (!username) {
+    console.error('Validation failed: Username required in headers');
     return res.status(401).json({ error: 'Username required in headers' });
   }
   try {
+    console.log('Fetching user:', username);
     const user = await User.findOne({ username });
     if (!user) {
+      console.error('User not found:', username);
       return res.status(401).json({ error: 'User not found' });
     }
     if (user.role !== 'teacher') {
+      console.error('User not authorized:', username, user.role);
       return res.status(403).json({ error: 'Only teachers can delete subjects' });
     }
+    console.log('Deleting page:', pageName);
     const page = await Page.findOneAndDelete({ name: pageName });
     if (!page) {
+      console.error('Page not found:', pageName);
       return res.status(404).json({ error: 'Page not found' });
     }
-    const pageFiles = await File.find({ pageName });
-    pageFiles.forEach(file => {
-      const filePath = path.join(__dirname, file.path);
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
-      }
-    });
+    console.log('Deleting files for page:', pageName);
     await File.deleteMany({ pageName });
     console.log('Page deleted:', pageName);
     res.json({ message: 'Page deleted' });
   } catch (err) {
     console.error('Error deleting page:', err);
-    res.status(500).json({ error: 'Failed to delete page' });
+    res.status(500).json({ error: 'Failed to delete page', details: err.message });
   }
 });
 
 // Routes for files
-app.post('/pages/:pageName/files', upload.single('file'), async (req, res) => {
+app.post('/pages/:pageName/files', async (req, res) => {
   const pageName = req.params.pageName;
+  const { name, fileData, contentType } = req.body;
+  console.log('Upload request:', { pageName, name, contentType, fileDataLength: fileData ? fileData.length : 0 });
+
   if (!pageName || pageName.trim() === '') {
+    console.error('Validation failed: Page name is required');
     return res.status(400).json({ error: 'Page name is required' });
+  }
+  if (!name || !fileData || !contentType) {
+    console.error('Validation failed: Missing required fields', { name, fileData: !!fileData, contentType });
+    return res.status(400).json({ error: 'File name, data, and content type are required' });
+  }
+  // Validate file size (MongoDB document limit is 16MB, base64 increases size by ~33%)
+  const maxBase64Size = 12 * 1024 * 1024; // 12MB to stay under 16MB after overhead
+  if (fileData.length > maxBase64Size) {
+    console.error('Validation failed: File too large', { fileDataLength: fileData.length, maxBase64Size });
+    return res.status(400).json({ error: `File too large. Maximum size is ${maxBase64Size / (1024 * 1024)}MB.` });
   }
   const username = req.headers['x-username'];
   if (!username) {
+    console.error('Validation failed: Username required in headers');
     return res.status(401).json({ error: 'Username required in headers' });
   }
-  if (!req.file) {
-    return res.status(400).json({ error: 'No file uploaded' });
-  }
   try {
+    console.log('Fetching user:', username);
     const user = await User.findOne({ username });
     if (!user) {
+      console.error('User not found:', username);
       return res.status(401).json({ error: 'User not found' });
     }
     if (user.role !== 'teacher') {
+      console.error('User not authorized:', username, user.role);
       return res.status(403).json({ error: 'Only teachers can upload files' });
     }
+    console.log('Fetching page:', pageName);
     const page = await Page.findOne({ name: pageName });
     if (!page) {
+      console.error('Page not found:', pageName);
       return res.status(404).json({ error: 'Page not found' });
     }
-    const existingFile = await File.findOne({ pageName, name: req.file.originalname });
+    console.log('Checking for existing file:', name);
+    const existingFile = await File.findOne({ pageName, name });
     if (existingFile) {
+      console.error('File already exists:', name);
       return res.status(400).json({ error: 'File with this name already exists' });
     }
-    const filePath = path.join('Uploads', pageName, req.file.originalname);
+    console.log('Saving new file:', name);
     const file = new File({
       pageName,
-      name: req.file.originalname,
-      path: filePath,
+      name,
+      fileData,
+      contentType,
     });
     await file.save();
     console.log('File uploaded and saved to MongoDB:', file);
     res.status(201).json({ message: 'File uploaded' });
   } catch (err) {
-    // Delete the uploaded file if saving fails
-    const filePath = path.join(__dirname, 'Uploads', pageName, req.file.originalname);
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
-    }
-    console.error('Error uploading file:', err);
-    res.status(500).json({ error: 'Failed to upload file' });
+    console.error('Error uploading file:', err.message, err.stack);
+    res.status(500).json({ error: 'Failed to upload file', details: err.message });
   }
 });
 
 app.get('/pages/:pageName/files', async (req, res) => {
   const pageName = req.params.pageName;
   if (!pageName || pageName.trim() === '') {
+    console.error('Validation failed: Page name is required');
     return res.status(400).json({ error: 'Page name is required' });
   }
   try {
+    console.log('Fetching page:', pageName);
     const page = await Page.findOne({ name: pageName });
     if (!page) {
+      console.error('Page not found:', pageName);
       return res.status(404).json({ error: 'Page not found' });
     }
+    console.log('Fetching files for page:', pageName);
     const files = await File.find({ pageName });
-    // Format the response to match Flutter app expectations
+    // Format the response to include fileData and contentType
     const formattedFiles = files.map(file => ({
       name: file.name,
+      fileData: file.fileData,
+      contentType: file.contentType,
     }));
-    console.log('Fetched files for page', pageName, ':', formattedFiles);
+    console.log('Fetched files for page', pageName, ':', formattedFiles.length);
     res.json(formattedFiles);
   } catch (err) {
     console.error('Error fetching files:', err);
-    res.status(500).json({ error: 'Failed to load files' });
+    res.status(500).json({ error: 'Failed to load files', details: err.message });
   }
 });
 
@@ -223,16 +230,21 @@ app.get('/pages/:pageName/files', async (req, res) => {
 app.post('/register', async (req, res) => {
   const { username, password, role, rollno } = req.body;
   if (!username || !password || !role || !rollno) {
+    console.error('Validation failed: Missing required fields', { username, role, rollno });
     return res.status(400).json({ error: 'Username, password, role, and rollno are required' });
   }
   if (!['student', 'teacher'].includes(role)) {
+    console.error('Validation failed: Invalid role', role);
     return res.status(400).json({ error: 'Role must be "student" or "teacher"' });
   }
   try {
+    console.log('Checking for existing user:', username);
     const existingUser = await User.findOne({ username });
     if (existingUser) {
+      console.error('User already exists:', username);
       return res.status(400).json({ error: 'Username already exists' });
     }
+    console.log('Hashing password for user:', username);
     const hashedPassword = await bcrypt.hash(password, 10);
     const user = new User({ username, password: hashedPassword, role, rollno });
     await user.save();
@@ -240,7 +252,7 @@ app.post('/register', async (req, res) => {
     res.status(201).json({ message: 'User registered successfully' });
   } catch (err) {
     console.error('Error registering user:', err);
-    res.status(500).json({ error: 'Failed to register user' });
+    res.status(500).json({ error: 'Failed to register user', details: err.message });
   }
 });
 
@@ -248,13 +260,17 @@ app.post('/register', async (req, res) => {
 app.post('/login', async (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) {
+    console.error('Validation failed: Username and password are required');
     return res.status(400).json({ error: 'Username and password are required' });
   }
   try {
+    console.log('Fetching user:', username);
     const user = await User.findOne({ username });
     if (!user) {
+      console.error('User not found:', username);
       return res.status(401).json({ error: 'Invalid username or password' });
     }
+    console.log('Comparing password for user:', username);
     let isMatch = false;
     if (user.password.startsWith('$2b$')) {
       isMatch = await bcrypt.compare(password, user.password);
@@ -262,13 +278,14 @@ app.post('/login', async (req, res) => {
       isMatch = password === user.password;
     }
     if (!isMatch) {
+      console.error('Invalid password for user:', username);
       return res.status(401).json({ error: 'Invalid username or password' });
     }
     console.log('User logged in:', username);
     res.json({ message: 'Login successful', role: user.role });
   } catch (err) {
     console.error('Error logging in:', err);
-    res.status(500).json({ error: 'Failed to login' });
+    res.status(500).json({ error: 'Failed to login', details: err.message });
   }
 });
 

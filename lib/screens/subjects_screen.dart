@@ -3,6 +3,10 @@ import 'package:flutter/foundation.dart'; // Added for debugPrint
 import 'package:study_nest/services/api_service.dart';
 import 'package:file_picker/file_picker.dart';
 import './login_screen.dart'; // Import to access currentUserRole
+import 'dart:convert'; // For base64 decoding
+import 'dart:io'; // For File handling
+import 'package:path_provider/path_provider.dart'; // For temporary directory
+import 'package:open_file/open_file.dart'; // For opening PDFs
 
 class SubjectScreen extends StatefulWidget {
   final String subjectName;
@@ -15,7 +19,7 @@ class SubjectScreen extends StatefulWidget {
 
 class _SubjectScreenState extends State<SubjectScreen> {
   final ApiService apiService = ApiService();
-  List<String> files = [];
+  List<Map<String, dynamic>> files = [];
 
   @override
   void initState() {
@@ -27,18 +31,9 @@ class _SubjectScreenState extends State<SubjectScreen> {
     try {
       final response = await apiService.getFiles(widget.subjectName);
       debugPrint('Load files response: $response');
-      if (response != null && response is List) {
-        setState(() {
-          files = response.map((file) {
-            if (file is Map && file.containsKey('name')) {
-              return file['name'] as String;
-            }
-            throw const FormatException('Invalid file format in response');
-          }).toList();
-        });
-      } else {
-        throw Exception('Invalid response format: Expected a list of files');
-      }
+      setState(() {
+        files = response;
+      });
     } catch (e) {
       String errorMessage = 'Failed to load files';
       if (e.toString().contains('<!DOCTYPE html>')) {
@@ -111,6 +106,32 @@ class _SubjectScreenState extends State<SubjectScreen> {
         SnackBar(content: Text('$errorMessage: $e')),
       );
       debugPrint('Upload error: $e');
+    }
+  }
+
+  void _viewFile(Map<String, dynamic> file) async {
+    try {
+      // Decode base64 file data
+      final fileData = base64Decode(file['fileData']);
+      final fileName = file['name'];
+
+      // Save to temporary directory
+      final tempDir = await getTemporaryDirectory();
+      final tempFile = File('${tempDir.path}/$fileName');
+      await tempFile.writeAsBytes(fileData);
+
+      // Open the file
+      final result = await OpenFile.open(tempFile.path);
+      if (result.type != ResultType.done) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to open file: ${result.message}')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error opening file: $e')),
+      );
+      debugPrint('Open file error: $e');
     }
   }
 
@@ -219,9 +240,11 @@ class _SubjectScreenState extends State<SubjectScreen> {
               child: ListView.builder(
                 itemCount: files.length,
                 itemBuilder: (context, index) {
+                  final file = files[index];
                   return ListTile(
-                    title: Text(files[index]),
+                    title: Text(file['name']),
                     leading: const Icon(Icons.picture_as_pdf),
+                    onTap: () => _viewFile(file),
                   );
                 },
               ),

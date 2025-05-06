@@ -10,6 +10,7 @@ dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.8
+  open_file: ^3.5.10
   http: ^1.2.2
   file_picker: ^8.1.2
   localstorage: ^5.0.0
