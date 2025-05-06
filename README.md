@@ -1,16 +1,37 @@
-# study_nest
+# 📚 StudyNest: Your Personalized Learning App
 
-A new Flutter project.
+**StudyNest** is a mobile-first learning platform designed to revolutionize how students access, manage, and engage with academic content—right from their smartphones. Whether you're reviewing lecture notes, organizing resources, or planning your study sessions, StudyNest puts everything you need in one place.
 
-## Getting Started
+## 🚀 Key Highlights
 
-This project is a starting point for a Flutter application.
+- 🤖 **AI-Powered Chatbot**  
+  Instantly get help with academic queries, understand difficult concepts, and receive smart content suggestions.
 
-A few resources to get you started if this is your first Flutter project:
+- 🗺️ **Personalized Study Roadmaps**  
+  Customized study plans generated based on your goals, learning style, and performance trends.
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+## 📱 Core Features
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+- 🔐 **Mobile User Registration and Secure Login**  
+  Create and manage your account securely from your mobile device.
+
+- 📤 **Upload & Access Resources**  
+  Easily upload notes, slides, assignments, and study materials. Access them anytime, anywhere.
+
+- 🗂️ **Organize by Subject, Year, and Semester**  
+  Keep your study materials structured for quick access and better productivity.
+
+
+## 🛠️ Tech Stack
+
+- **Frontend**: Flutter  
+- **Backend**: Node.js & Express.js  
+- **Database**: MongoDB  
+- **Authentication**: JWT-based authentication  
+- **AI Integration**: OpenAI API (for chatbot functionality)
+
+## 📦 Getting Started
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/SharathKumarDasari/studynest-mobile.git
