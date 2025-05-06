@@ -148,7 +148,7 @@ class _SubjectScreenState extends State<SubjectScreen> {
         title: Row(
           children: [
             Image.asset(
-              'assets/images/logo-on-dark.png',
+              'assets/logo-on-dark.png',
               height: 40,
               errorBuilder: (context, error, stackTrace) {
                 debugPrint('Failed to load logo: $error');
