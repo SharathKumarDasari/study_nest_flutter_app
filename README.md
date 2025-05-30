@@ -34,4 +34,4 @@
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/SharathKumarDasari/studynest-mobile.git
+   git clone https://github.com/SharathKumarDasari/study_nest_flutter_app.git
