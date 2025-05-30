@@ -201,6 +201,23 @@ class _SubjectScreenState extends State<SubjectScreen> {
               },
             ),
             ListTile(
+              leading: const Icon(Icons.chat),
+              title: const Text('Doubt Session'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/doubt');
+              },
+            ),
+            if (currentUserRole == 'student')
+              ListTile(
+                leading: const Icon(Icons.work),
+                title: const Text('Career Paths'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.pushNamed(context, '/career');
+                },
+              ),
+            ListTile(
               leading: const Icon(Icons.info),
               title: const Text('About Us'),
               onTap: () {

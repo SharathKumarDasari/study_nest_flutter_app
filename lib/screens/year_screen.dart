@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:study_nest/services/api_service.dart';
 import './login_screen.dart'; // Import to access currentUserRole
+
 class YearScreen extends StatefulWidget {
   const YearScreen({super.key});
 
@@ -179,6 +180,23 @@ class _YearScreenState extends State<YearScreen> {
                 Navigator.pushNamed(context, '/subjects');
               },
             ),
+            ListTile(
+              leading: const Icon(Icons.chat),
+              title: const Text('Doubt Session'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/doubt');
+              },
+            ),
+            if (currentUserRole == 'student')
+              ListTile(
+                leading: const Icon(Icons.work),
+                title: const Text('Career Paths'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.pushNamed(context, '/career');
+                },
+              ),
             ListTile(
               leading: const Icon(Icons.info),
               title: const Text('About Us'),
