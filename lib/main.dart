@@ -7,7 +7,8 @@ import 'screens/subjects_all.dart';
 import 'screens/subjects_screen.dart';
 import 'screens/about_us_screen.dart';
 import 'screens/doubt_session_page.dart';
-import 'screens/career_paths_page.dart'; // Added import for CareerPathsPage
+import 'screens/career_paths_page.dart';
+import 'screens/upload_career_path_page.dart'; // Added import for UploadCareerPathPage
 
 void main() {
   runApp(const StudyNestApp());
@@ -32,7 +33,8 @@ class StudyNestApp extends StatelessWidget {
         '/subjects': (context) => const SubjectsAllScreen(),
         '/about': (context) => const AboutUsScreen(),
         '/doubt': (context) => const DoubtSessionPage(),
-        '/career': (context) => const CareerPathsPage(), // Added route for CareerPathsPage
+        '/career': (context) => const CareerPathsPage(),
+        '/upload-career-path': (context) => const UploadCareerPathPage(), // Added route for UploadCareerPathPage
       },
       onGenerateRoute: (settings) {
         if (settings.name == '/subject') {

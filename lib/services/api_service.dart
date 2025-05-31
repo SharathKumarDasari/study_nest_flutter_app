@@ -141,6 +141,81 @@ class ApiService {
     }
   }
 
+  Future<List<Map<String, dynamic>>> getCareerPaths() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/career-paths'),
+        headers: {
+          'x-username': currentUsername ?? '',
+        },
+      );
+      debugPrint('Get career paths response: ${response.statusCode} ${response.body}');
+      if (response.statusCode == 200) {
+        final List<dynamic> careerPaths = jsonDecode(response.body);
+        return careerPaths.map((path) {
+          if (path is Map &&
+              path.containsKey('careerPath') &&
+              path.containsKey('pdfData') &&
+              path.containsKey('contentType')) {
+            return {
+              'careerPath': path['careerPath'] as String,
+              'pdfData': path['pdfData'] as String, // Base64 string
+              'contentType': path['contentType'] as String,
+            };
+          }
+          throw const FormatException('Invalid career path format in response');
+        }).toList();
+      } else {
+        throw Exception('Failed to load career paths: ${response.statusCode} ${response.body}');
+      }
+    } catch (e) {
+      debugPrint('Get career paths error: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> uploadCareerPath(String careerPath, String filePath) async {
+    try {
+      if (currentUsername == null || currentUsername!.isEmpty) {
+        throw Exception('Username not set. Please log in again.');
+      }
+
+      // Read the file and convert to base64
+      final file = File(filePath);
+      final fileBytes = await file.readAsBytes();
+      final base64File = base64Encode(fileBytes);
+
+      final response = await http.post(
+        Uri.parse('$baseUrl/career-paths'),
+        headers: {
+          'Content-Type': 'application/json',
+          'x-username': currentUsername!,
+        },
+        body: jsonEncode({
+          'careerPath': careerPath,
+          'pdfData': base64File,
+          'contentType': 'application/pdf',
+        }),
+      );
+
+      debugPrint('Upload career path response: ${response.statusCode} ${response.body}');
+
+      if (response.statusCode != 201) {
+        String error = 'Failed to upload career path PDF: ${response.statusCode}';
+        try {
+          final errorJson = jsonDecode(response.body);
+          error = errorJson['error'] ?? error;
+        } catch (_) {
+          error = '$error (Response: ${response.body})';
+        }
+        throw Exception(error);
+      }
+    } catch (e) {
+      debugPrint('Upload career path error: $e');
+      rethrow;
+    }
+  }
+
   Future<void> register(String username, String password, String role, String rollno) async {
     try {
       final response = await http.post(

@@ -78,6 +78,15 @@ class HomeScreen extends StatelessWidget {
                   Navigator.pushNamed(context, '/career');
                 },
               ),
+            if (currentUserRole == 'teacher')
+              ListTile(
+                leading: const Icon(Icons.upload_file),
+                title: const Text('Upload Career Path'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.pushNamed(context, '/upload-career-path');
+                },
+              ),
             ListTile(
               leading: const Icon(Icons.info),
               title: const Text('About Us'),
@@ -153,15 +162,6 @@ class HomeScreen extends StatelessWidget {
                         ],
                       ),
                     ),
-                    // const SizedBox(width: 16),
-                    // Expanded(
-                    //   flex: 1,
-                    //   child: Image.asset(
-                    //     'assets/pic01.webp',
-                    //     fit: BoxFit.cover,
-                    //     errorBuilder: (context, error, stackTrace) => const Icon(Icons.error),
-                    //   ),
-                    // ),
                   ],
                 ),
                 const SizedBox(height: 20),

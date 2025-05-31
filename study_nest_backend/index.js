@@ -45,10 +45,44 @@ const fileSchema = new mongoose.Schema({
   uploadedAt: { type: Date, default: Date.now },
 });
 
+const careerPathSchema = new mongoose.Schema({
+  careerPath: { type: String, required: true, unique: true },
+  pdfData: { type: String, required: true }, // Store base64-encoded PDF
+  contentType: { type: String, required: true }, // e.g., 'application/pdf'
+  uploadedBy: { type: String, required: true },
+  createdAt: { type: Date, default: Date.now },
+});
+
 // Define Models
 const User = mongoose.model('User', userSchema, 'users');
 const Page = mongoose.model('Page', pageSchema);
 const File = mongoose.model('File', fileSchema);
+const CareerPath = mongoose.model('CareerPath', careerPathSchema);
+
+// Middleware to check if user is a teacher
+const isTeacher = async (req, res, next) => {
+  const username = req.headers['x-username'];
+  if (!username) {
+    console.error('Validation failed: Username required in headers');
+    return res.status(401).json({ error: 'Username required in headers' });
+  }
+  try {
+    const user = await User.findOne({ username });
+    if (!user) {
+      console.error('User not found:', username);
+      return res.status(401).json({ error: 'User not found' });
+    }
+    if (user.role !== 'teacher') {
+      console.error('User not authorized:', username, user.role);
+      return res.status(403).json({ error: 'Only teachers can perform this action' });
+    }
+    req.user = user;
+    next();
+  } catch (err) {
+    console.error('Error in isTeacher middleware:', err);
+    res.status(500).json({ error: 'Server error', details: err.message });
+  }
+};
 
 // Routes for pages
 app.get('/pages', async (req, res) => {
@@ -62,28 +96,9 @@ app.get('/pages', async (req, res) => {
   }
 });
 
-app.post('/pages', async (req, res) => {
+app.post('/pages', isTeacher, async (req, res) => {
   const { name, semester } = req.body;
-  const username = req.headers['x-username'];
-  if (!username) {
-    console.error('Validation failed: Username required in headers');
-    return res.status(401).json({ error: 'Username required in headers' });
-  }
-  if (!name || !semester) {
-    console.error('Validation failed: Name and semester are required');
-    return res.status(400).json({ error: 'Name and semester are required' });
-  }
   try {
-    console.log('Fetching user:', username);
-    const user = await User.findOne({ username });
-    if (!user) {
-      console.error('User not found:', username);
-      return res.status(401).json({ error: 'User not found' });
-    }
-    if (user.role !== 'teacher') {
-      console.error('User not authorized:', username, user.role);
-      return res.status(403).json({ error: 'Only teachers can create subjects' });
-    }
     console.log('Creating page:', name, semester);
     const page = new Page({ name, semester });
     await page.save();
@@ -95,28 +110,13 @@ app.post('/pages', async (req, res) => {
   }
 });
 
-app.delete('/pages/:pageName', async (req, res) => {
+app.delete('/pages/:pageName', isTeacher, async (req, res) => {
   const pageName = req.params.pageName;
   if (!pageName || pageName.trim() === '') {
     console.error('Validation failed: Page name is required');
     return res.status(400).json({ error: 'Page name is required' });
   }
-  const username = req.headers['x-username'];
-  if (!username) {
-    console.error('Validation failed: Username required in headers');
-    return res.status(401).json({ error: 'Username required in headers' });
-  }
   try {
-    console.log('Fetching user:', username);
-    const user = await User.findOne({ username });
-    if (!user) {
-      console.error('User not found:', username);
-      return res.status(401).json({ error: 'User not found' });
-    }
-    if (user.role !== 'teacher') {
-      console.error('User not authorized:', username, user.role);
-      return res.status(403).json({ error: 'Only teachers can delete subjects' });
-    }
     console.log('Deleting page:', pageName);
     const page = await Page.findOneAndDelete({ name: pageName });
     if (!page) {
@@ -134,7 +134,7 @@ app.delete('/pages/:pageName', async (req, res) => {
 });
 
 // Routes for files
-app.post('/pages/:pageName/files', async (req, res) => {
+app.post('/pages/:pageName/files', isTeacher, async (req, res) => {
   const pageName = req.params.pageName;
   const { name, fileData, contentType } = req.body;
   console.log('Upload request:', { pageName, name, contentType, fileDataLength: fileData ? fileData.length : 0 });
@@ -153,22 +153,7 @@ app.post('/pages/:pageName/files', async (req, res) => {
     console.error('Validation failed: File too large', { fileDataLength: fileData.length, maxBase64Size });
     return res.status(400).json({ error: `File too large. Maximum size is ${maxBase64Size / (1024 * 1024)}MB.` });
   }
-  const username = req.headers['x-username'];
-  if (!username) {
-    console.error('Validation failed: Username required in headers');
-    return res.status(401).json({ error: 'Username required in headers' });
-  }
   try {
-    console.log('Fetching user:', username);
-    const user = await User.findOne({ username });
-    if (!user) {
-      console.error('User not found:', username);
-      return res.status(401).json({ error: 'User not found' });
-    }
-    if (user.role !== 'teacher') {
-      console.error('User not authorized:', username, user.role);
-      return res.status(403).json({ error: 'Only teachers can upload files' });
-    }
     console.log('Fetching page:', pageName);
     const page = await Page.findOne({ name: pageName });
     if (!page) {
@@ -223,6 +208,56 @@ app.get('/pages/:pageName/files', async (req, res) => {
   } catch (err) {
     console.error('Error fetching files:', err);
     res.status(500).json({ error: 'Failed to load files', details: err.message });
+  }
+});
+
+// Routes for career paths
+app.post('/career-paths', isTeacher, async (req, res) => {
+  const { careerPath, pdfData, contentType } = req.body;
+  console.log('Career path upload request:', { careerPath, contentType, pdfDataLength: pdfData ? pdfData.length : 0 });
+
+  if (!careerPath || !pdfData || !contentType) {
+    console.error('Validation failed: Missing required fields', { careerPath, pdfData: !!pdfData, contentType });
+    return res.status(400).json({ error: 'Career path, PDF data, and content type are required' });
+  }
+  // Validate file size (MongoDB document limit is 16MB, base64 increases size by ~33%)
+  const maxBase64Size = 12 * 1024 * 1024; // 12MB to stay under 16MB after overhead
+  if (pdfData.length > maxBase64Size) {
+    console.error('Validation failed: PDF too large', { pdfDataLength: pdfData.length, maxBase64Size });
+    return res.status(400).json({ error: `PDF too large. Maximum size is ${maxBase64Size / (1024 * 1024)}MB.` });
+  }
+  try {
+    console.log('Checking for existing career path:', careerPath);
+    const existingCareerPath = await CareerPath.findOne({ careerPath });
+    if (existingCareerPath) {
+      console.error('Career path already exists:', careerPath);
+      return res.status(400).json({ error: 'Career path already exists' });
+    }
+    console.log('Saving new career path:', careerPath);
+    const newCareerPath = new CareerPath({
+      careerPath,
+      pdfData,
+      contentType,
+      uploadedBy: req.user.username,
+    });
+    await newCareerPath.save();
+    console.log('Career path PDF uploaded and saved to MongoDB:', newCareerPath);
+    res.status(201).json({ message: 'Career path PDF uploaded' });
+  } catch (err) {
+    console.error('Error uploading career path PDF:', err.message, err.stack);
+    res.status(500).json({ error: 'Failed to upload career path PDF', details: err.message });
+  }
+});
+
+app.get('/career-paths', async (req, res) => {
+  try {
+    console.log('Fetching career paths');
+    const careerPaths = await CareerPath.find().select('careerPath pdfData contentType');
+    console.log('Fetched career paths:', careerPaths.length);
+    res.json(careerPaths);
+  } catch (err) {
+    console.error('Error fetching career paths:', err);
+    res.status(500).json({ error: 'Failed to load career paths', details: err.message });
   }
 });
 

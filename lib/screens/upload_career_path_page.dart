@@ -1,74 +1,98 @@
 import 'package:flutter/material.dart';
 import 'package:study_nest/services/api_service.dart';
 import 'package:study_nest/screens/login_screen.dart'; // For currentUserRole
-import 'dart:convert'; // For base64 decoding
-import 'dart:io'; // For File handling
-import 'package:path_provider/path_provider.dart'; // For temporary directory
-import 'package:open_file/open_file.dart'; // For opening PDFs
+import 'package:file_picker/file_picker.dart';
 
-class CareerPathsPage extends StatefulWidget {
-  const CareerPathsPage({super.key});
+class UploadCareerPathPage extends StatefulWidget {
+  const UploadCareerPathPage({super.key});
 
   @override
-  State<CareerPathsPage> createState() => _CareerPathsPageState();
+  State<UploadCareerPathPage> createState() => _UploadCareerPathPageState();
 }
 
-class _CareerPathsPageState extends State<CareerPathsPage> {
+class _UploadCareerPathPageState extends State<UploadCareerPathPage> {
   final ApiService apiService = ApiService();
-  List<Map<String, dynamic>> careerPaths = [];
-  bool isLoading = true;
+  final TextEditingController _careerPathController = TextEditingController();
+  String? _filePath;
 
-  @override
-  void initState() {
-    super.initState();
-    _loadCareerPaths();
-  }
-
-  // Fetch career paths from the backend
-  void _loadCareerPaths() async {
+  Future<void> _pickFile() async {
     try {
-      final fetchedCareerPaths = await apiService.getCareerPaths();
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf'],
+      );
+
+      if (result == null || result.files.isEmpty) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No file selected')),
+          );
+        }
+        return;
+      }
+
+      final file = result.files.single;
+      if (!file.name.toLowerCase().endsWith('.pdf')) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Please select a PDF file')),
+          );
+        }
+        return;
+      }
+
+      if (file.path == null) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('File path not available')),
+          );
+        }
+        return;
+      }
+
       setState(() {
-        careerPaths = fetchedCareerPaths;
-        isLoading = false;
+        _filePath = file.path;
       });
     } catch (e) {
-      setState(() {
-        isLoading = false;
-      });
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load career paths: $e')),
+          SnackBar(content: Text('Error picking file: $e')),
         );
       }
     }
   }
 
-  // Function to view the PDF
-  Future<void> _viewPDF(Map<String, dynamic> careerPath) async {
+  Future<void> _uploadCareerPath() async {
+    final careerPath = _careerPathController.text.trim();
+    if (careerPath.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a career path name')),
+      );
+      return;
+    }
+
+    if (_filePath == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a PDF file')),
+      );
+      return;
+    }
+
     try {
-      // Decode base64 PDF data
-      final pdfData = base64Decode(careerPath['pdfData']);
-      final fileName = '${careerPath['careerPath'].toLowerCase().replaceAll(' ', '_')}_roadmap.pdf';
-
-      // Save to temporary directory
-      final tempDir = await getTemporaryDirectory();
-      final tempFile = File('${tempDir.path}/$fileName');
-      await tempFile.writeAsBytes(pdfData);
-
-      // Open the file
-      final result = await OpenFile.open(tempFile.path);
-      if (result.type != ResultType.done) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to open PDF: ${result.message}')),
-          );
-        }
+      await apiService.uploadCareerPath(careerPath, _filePath!);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Career path PDF uploaded successfully')),
+        );
+        _careerPathController.clear();
+        setState(() {
+          _filePath = null;
+        });
       }
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error opening PDF: $e')),
+          SnackBar(content: Text('Error uploading career path PDF: $e')),
         );
       }
     }
@@ -107,7 +131,7 @@ class _CareerPathsPageState extends State<CareerPathsPage> {
             ),
             // const SizedBox(width: 10),
             // const Text(
-            //   'Career Paths',
+            //   'Upload Career Path',
             //   style: TextStyle(color: Colors.white),
             // ),
           ],
@@ -191,31 +215,44 @@ class _CareerPathsPageState extends State<CareerPathsPage> {
           ],
         ),
       ),
-      body: isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : careerPaths.isEmpty
-              ? const Center(child: Text('No career paths available.'))
-              : ListView.builder(
-                  padding: const EdgeInsets.all(16.0),
-                  itemCount: careerPaths.length,
-                  itemBuilder: (context, index) {
-                    final careerPath = careerPaths[index];
-                    return Card(
-                      elevation: 4.0,
-                      margin: const EdgeInsets.symmetric(vertical: 8.0),
-                      child: ListTile(
-                        leading: const Icon(Icons.work, color: Colors.blue),
-                        title: Text(
-                          careerPath['careerPath'],
-                          style: const TextStyle(fontSize: 18.0, fontWeight: FontWeight.bold),
-                        ),
-                        subtitle: const Text('Tap to view the roadmap'),
-                        trailing: const Icon(Icons.arrow_forward_ios, color: Colors.grey),
-                        onTap: () => _viewPDF(careerPath),
-                      ),
-                    );
-                  },
-                ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              controller: _careerPathController,
+              decoration: const InputDecoration(
+                labelText: 'Career Path Name',
+                hintText: 'e.g., Frontend Developer',
+              ),
+            ),
+            const SizedBox(height: 16.0),
+            ElevatedButton(
+              onPressed: _pickFile,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.black,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Select PDF File'),
+            ),
+            const SizedBox(height: 8.0),
+            Text(
+              _filePath != null ? 'File selected: ${_filePath!.split('/').last}' : 'No file selected',
+              style: const TextStyle(fontSize: 16.0),
+            ),
+            const SizedBox(height: 16.0),
+            ElevatedButton(
+              onPressed: _uploadCareerPath,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.black,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Upload Career Path PDF'),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
