@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:study_nest/services/api_service.dart';
-import 'package:study_nest/screens/login_screen.dart'; // For currentUserRole
+import 'package:StudyNest/services/api_service.dart';
+import 'package:StudyNest/screens/login_screen.dart'; // For currentUserRole
 import 'dart:convert'; // For base64 decoding
 import 'dart:io'; // For File handling
 import 'package:path_provider/path_provider.dart'; // For temporary directory and downloads
 import 'package:open_file/open_file.dart'; // For opening PDFs
-import 'package:study_nest/screens/permissions.dart'; // For requesting permissions
+import 'package:StudyNest/screens/permissions.dart'; // For requesting permissions
 
 class CareerPathsPage extends StatefulWidget {
   const CareerPathsPage({super.key});

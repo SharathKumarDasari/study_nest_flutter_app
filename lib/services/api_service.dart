@@ -3,10 +3,12 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart'; // For debugPrint
 import '../screens/login_screen.dart'; // Import to access currentUsername
 import 'dart:io'; // For File handling
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class ApiService {
-  static const String baseUrl = 'http://192.168.15.241:3000'; // Replace with your computer's IP address
+  // static const String baseUrl = 'http://192.168.15.241:3000'; // Replace with your computer's IP address
 
+  final String baseUrl = String.fromEnvironment('BASE_URL', defaultValue: dotenv.env['BASE_URL'] ?? 'http://localhost:3000');
   // Utility method to sanitize subjectName for URLs
   String _sanitizeSubjectName(String subjectName) {
     // Remove invalid characters and encode the subjectName

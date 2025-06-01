@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:study_nest/services/api_service.dart';
-import 'package:study_nest/screens/login_screen.dart'; // For currentUserRole
+import 'package:StudyNest/services/api_service.dart';
+import 'package:StudyNest/screens/login_screen.dart'; // For currentUserRole
 import 'package:file_picker/file_picker.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:open_file/open_file.dart';
-import 'package:study_nest/screens/permissions.dart'; // For requesting permissions
+import 'package:StudyNest/screens/permissions.dart'; // For requesting permissions
 
 class SubjectScreen extends StatefulWidget {
   final String subjectName;

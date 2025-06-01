@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart'; // Import flutter_dotenv
-import 'package:study_nest/screens/login_screen.dart'; // For currentUserRole
+import 'package:StudyNest/screens/login_screen.dart'; // For currentUserRole
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 

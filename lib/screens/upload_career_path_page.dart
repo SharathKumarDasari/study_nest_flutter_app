@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:study_nest/services/api_service.dart';
-import 'package:study_nest/screens/login_screen.dart'; // For currentUserRole
+import 'package:StudyNest/services/api_service.dart';
+import 'package:StudyNest/screens/login_screen.dart'; // For currentUserRole
 import 'package:file_picker/file_picker.dart';
 
 class UploadCareerPathPage extends StatefulWidget {

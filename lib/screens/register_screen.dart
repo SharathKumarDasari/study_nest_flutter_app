@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:study_nest/services/api_service.dart';
+import 'package:StudyNest/services/api_service.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
