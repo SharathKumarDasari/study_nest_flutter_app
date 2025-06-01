@@ -3,8 +3,9 @@ import 'package:study_nest/services/api_service.dart';
 import 'package:study_nest/screens/login_screen.dart'; // For currentUserRole
 import 'dart:convert'; // For base64 decoding
 import 'dart:io'; // For File handling
-import 'package:path_provider/path_provider.dart'; // For temporary directory
+import 'package:path_provider/path_provider.dart'; // For temporary directory and downloads
 import 'package:open_file/open_file.dart'; // For opening PDFs
+import 'package:study_nest/screens/permissions.dart'; // For requesting permissions
 
 class CareerPathsPage extends StatefulWidget {
   const CareerPathsPage({super.key});
@@ -69,6 +70,55 @@ class _CareerPathsPageState extends State<CareerPathsPage> {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error opening PDF: $e')),
+        );
+      }
+    }
+  }
+
+  // Function to download the PDF
+  Future<void> _downloadPDF(Map<String, dynamic> careerPath) async {
+    try {
+      // Request storage permission
+      final hasPermission = await requestStoragePermission();
+      if (!hasPermission) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Storage permission denied. Cannot download PDF.')),
+          );
+        }
+        return;
+      }
+
+      // Decode base64 PDF data
+      final pdfData = base64Decode(careerPath['pdfData']);
+      final fileName = '${careerPath['careerPath'].toLowerCase().replaceAll(' ', '_')}_roadmap.pdf';
+
+      // Get the Downloads directory
+      Directory? downloadsDir;
+      try {
+        downloadsDir = await getDownloadsDirectory();
+        if (downloadsDir == null) {
+          throw Exception('Downloads directory not found');
+        }
+      } catch (e) {
+        // Fallback to application documents directory if Downloads directory is unavailable
+        downloadsDir = await getApplicationDocumentsDirectory();
+      }
+
+      // Save the file to the Downloads directory
+      final filePath = '${downloadsDir.path}/$fileName';
+      final file = File(filePath);
+      await file.writeAsBytes(pdfData);
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('PDF downloaded to $filePath')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error downloading PDF: $e')),
         );
       }
     }
@@ -210,7 +260,17 @@ class _CareerPathsPageState extends State<CareerPathsPage> {
                           style: const TextStyle(fontSize: 18.0, fontWeight: FontWeight.bold),
                         ),
                         subtitle: const Text('Tap to view the roadmap'),
-                        trailing: const Icon(Icons.arrow_forward_ios, color: Colors.grey),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.download, color: Colors.green),
+                              onPressed: () => _downloadPDF(careerPath),
+                              tooltip: 'Download PDF',
+                            ),
+                            const Icon(Icons.arrow_forward_ios, color: Colors.grey),
+                          ],
+                        ),
                         onTap: () => _viewPDF(careerPath),
                       ),
                     );

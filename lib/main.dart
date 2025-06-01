@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart'; // Import flutter_dotenv
 import 'screens/register_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
@@ -8,9 +9,10 @@ import 'screens/subjects_screen.dart';
 import 'screens/about_us_screen.dart';
 import 'screens/doubt_session_page.dart';
 import 'screens/career_paths_page.dart';
-import 'screens/upload_career_path_page.dart'; // Added import for UploadCareerPathPage
+import 'screens/upload_career_path_page.dart';
 
-void main() {
+Future<void> main() async {
+  await dotenv.load(fileName: ".env"); // Load the .env file
   runApp(const StudyNestApp());
 }
 
@@ -34,7 +36,7 @@ class StudyNestApp extends StatelessWidget {
         '/about': (context) => const AboutUsScreen(),
         '/doubt': (context) => const DoubtSessionPage(),
         '/career': (context) => const CareerPathsPage(),
-        '/upload-career-path': (context) => const UploadCareerPathPage(), // Added route for UploadCareerPathPage
+        '/upload-career-path': (context) => const UploadCareerPathPage(),
       },
       onGenerateRoute: (settings) {
         if (settings.name == '/subject') {

@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart'; // Import flutter_dotenv
+import 'package:study_nest/screens/login_screen.dart'; // For currentUserRole
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'dart:io'; // For SocketException
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:study_nest/services/api_service.dart';
-import 'package:study_nest/screens/login_screen.dart'; // For currentUserRole
 
 class DoubtSessionPage extends StatefulWidget {
   const DoubtSessionPage({super.key});
@@ -15,113 +13,56 @@ class DoubtSessionPage extends StatefulWidget {
 
 class _DoubtSessionPageState extends State<DoubtSessionPage> {
   final TextEditingController _controller = TextEditingController();
-  final List<Map<String, String>> _messages = [];
-  final ScrollController _scrollController = ScrollController();
-  final ApiService apiService = ApiService();
-  final _storage = const FlutterSecureStorage();
+  List<Map<String, String>> _messages = [];
   bool _isLoading = false;
 
-  @override
-  void initState() {
-    super.initState();
-    _initializeApiKey();
-  }
+  // Retrieve the API key from the .env file
+  final String apiKey = dotenv.env['API_KEY'] ?? 'default-api-key-if-not-found';
 
-  // Initialize API key in secure storage (run once)
-  Future<void> _initializeApiKey() async {
-    String? apiKey = await _storage.read(key: 'grok_api_key');
-    if (apiKey == null) {
-      const String initialApiKey = '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';
-      await _storage.write(key: 'grok_api_key', value: initialApiKey);
-    }
-  }
+  Future<void> _sendMessage(String message) async {
+    if (message.trim().isEmpty) return;
 
-  // Function to call GroqCloud API with llama3-70b-8192 model
-  Future<String> _getChatbotResponse(String query) async {
+    setState(() {
+      _messages.add({'sender': 'user', 'text': message});
+      _isLoading = true;
+    });
+
     try {
-      const String apiUrl = 'https://api.grok.x.ai/v1/chat/completions';
-      final String? apiKey = await _storage.read(key: 'grok_api_key');
-
-      if (apiKey == null || apiKey.isEmpty) {
-        return 'Error: API key not found. Please set up the API key.';
-      }
-
+      // Example: Sending a request to a chatbot API (e.g., Grok API)
       final response = await http.post(
-        Uri.parse(apiUrl),
+        Uri.parse('https://api.x.ai/v1/chat/completions'), // Replace with actual API endpoint
         headers: {
-          'Authorization': 'Bearer $apiKey',
           'Content-Type': 'application/json',
+          'Authorization': 'Bearer $apiKey',
         },
         body: jsonEncode({
-          'model': 'llama3-70b-8192',
+          'model': 'grok', // Replace with the appropriate model
           'messages': [
-            {'role': 'user', 'content': query},
+            {'role': 'user', 'content': message}
           ],
-          'max_tokens': 100,
-          'temperature': 0.7,
         }),
       );
 
       if (response.statusCode == 200) {
-        try {
-          final data = jsonDecode(response.body);
-          if (data['choices'] != null && data['choices'].isNotEmpty) {
-            return data['choices'][0]['message']['content']?.trim() ?? 'Sorry, I got a response but it was empty.';
-          } else {
-            return 'Sorry, I got a response but it was empty.';
-          }
-        } catch (e) {
-          return 'Error: Failed to parse the server response. The response might be malformed.';
-        }
-      } else if (response.statusCode == 401) {
-        return 'Error: Invalid or unauthorized API key. Please verify your Groq API key at https://x.ai/api.';
-      } else if (response.statusCode == 429) {
-        return 'Rate limit exceeded. Please wait a few minutes and try again.';
-      } else if (response.statusCode == 404) {
-        return 'Model not found. Please check the model name or refer to https://x.ai/api for supported models.';
+        final data = jsonDecode(response.body);
+        final botMessage = data['choices'][0]['message']['content'];
+        setState(() {
+          _messages.add({'sender': 'bot', 'text': botMessage});
+        });
       } else {
-        return 'Sorry, I couldn\'t connect to the server. Status: ${response.statusCode}';
+        setState(() {
+          _messages.add({'sender': 'bot', 'text': 'Error: Failed to get response from API'});
+        });
       }
-    } on SocketException {
-      return 'Error: No internet connection. Please check your network and try again.';
     } catch (e) {
-      return 'Oops, something went wrong: $e';
-    }
-  }
-
-  void _sendMessage() async {
-    if (_controller.text.trim().isEmpty) return;
-
-    String userQuery = _controller.text;
-    setState(() {
-      _messages.add({'sender': 'user', 'text': userQuery});
-      _controller.clear();
-      _isLoading = true;
-    });
-
-    String botResponse = await _getChatbotResponse(userQuery);
-
-    if (mounted) {
+      setState(() {
+        _messages.add({'sender': 'bot', 'text': 'Error: $e'});
+      });
+    } finally {
       setState(() {
         _isLoading = false;
-        _messages.add({'sender': 'bot', 'text': botResponse});
       });
-    }
-
-    if (botResponse.startsWith('Error') || botResponse.startsWith('Sorry')) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(botResponse)));
-      }
-    }
-
-    if (mounted) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
-      });
+      _controller.clear();
     }
   }
 
@@ -143,12 +84,24 @@ class _DoubtSessionPageState extends State<DoubtSessionPage> {
           ),
         ),
         title: Row(
-          mainAxisSize: MainAxisSize.min, // Prevent overflow
+          mainAxisSize: MainAxisSize.min,
           children: [
             Image.asset(
               'assets/logo-on-dark.png',
-              height: 40
+              height: 40,
+              errorBuilder: (context, error, stackTrace) {
+                debugPrint('Error loading logo asset: $error');
+                return const Text(
+                  'Study Nest',
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                );
+              },
             ),
+            // const SizedBox(width: 10),
+            // const Text(
+            //   'Doubt Session',
+            //   style: TextStyle(color: Colors.white),
+            // ),
           ],
         ),
         backgroundColor: Colors.black,
@@ -203,6 +156,15 @@ class _DoubtSessionPageState extends State<DoubtSessionPage> {
                   Navigator.pushNamed(context, '/career');
                 },
               ),
+            if (currentUserRole == 'teacher')
+              ListTile(
+                leading: const Icon(Icons.upload_file),
+                title: const Text('Upload Career Path'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.pushNamed(context, '/upload-career-path');
+                },
+              ),
             ListTile(
               leading: const Icon(Icons.info),
               title: const Text('About Us'),
@@ -215,7 +177,6 @@ class _DoubtSessionPageState extends State<DoubtSessionPage> {
               leading: const Icon(Icons.logout),
               title: const Text('Logout'),
               onTap: () async {
-                // await apiService.logout();
                 Navigator.pushReplacementNamed(context, '/login');
               },
             ),
@@ -226,54 +187,45 @@ class _DoubtSessionPageState extends State<DoubtSessionPage> {
         children: [
           Expanded(
             child: ListView.builder(
-              controller: _scrollController,
-              padding: const EdgeInsets.all(8.0),
+              padding: const EdgeInsets.all(16.0),
               itemCount: _messages.length,
               itemBuilder: (context, index) {
-                bool isUser = _messages[index]['sender'] == 'user';
+                final message = _messages[index];
+                final isUser = message['sender'] == 'user';
                 return Align(
                   alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
                   child: Container(
-                    margin: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 8.0),
-                    padding: const EdgeInsets.all(12.0),
+                    margin: const EdgeInsets.symmetric(vertical: 4.0),
+                    padding: const EdgeInsets.all(10.0),
                     decoration: BoxDecoration(
-                      color: isUser ? Colors.blue[200] : Colors.grey[300],
-                      borderRadius: BorderRadius.circular(12.0),
+                      color: isUser ? Colors.blue[100] : Colors.grey[200],
+                      borderRadius: BorderRadius.circular(10.0),
                     ),
-                    child: Text(
-                      _messages[index]['text']!,
-                      style: TextStyle(
-                        color: isUser ? Colors.white : Colors.black87,
-                        fontSize: 16.0,
-                      ),
-                    ),
+                    child: Text(message['text']!),
                   ),
                 );
               },
             ),
           ),
-          if (_isLoading) const Center(child: CircularProgressIndicator()),
+          if (_isLoading) const CircularProgressIndicator(),
           Padding(
-            padding: const EdgeInsets.all(8.0),
+            padding: const EdgeInsets.all(16.0),
             child: Row(
               children: [
                 Expanded(
                   child: TextField(
                     controller: _controller,
-                    decoration: InputDecoration(
+                    decoration: const InputDecoration(
                       hintText: 'Ask your doubt...',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(20.0),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
+                      border: OutlineInputBorder(),
                     ),
-                    onSubmitted: (_) => _sendMessage(),
+                    onSubmitted: _sendMessage,
                   ),
                 ),
                 const SizedBox(width: 8.0),
                 IconButton(
-                  icon: const Icon(Icons.send, color: Colors.blue),
-                  onPressed: _sendMessage,
+                  icon: const Icon(Icons.send),
+                  onPressed: () => _sendMessage(_controller.text),
                 ),
               ],
             ),
@@ -281,12 +233,5 @@ class _DoubtSessionPageState extends State<DoubtSessionPage> {
         ],
       ),
     );
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    _scrollController.dispose();
-    super.dispose();
   }
 }
